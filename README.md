@@ -7,9 +7,9 @@ Statistical analysis of four A/B tests of an e-commerce website: a Python script
 ## Links
 
 - 📊 **Tableau dashboard:** [A/B Test Dashboard (Overview + Significance)](https://public.tableau.com/views/ABTestDashboard_17925770139850/Significance)
-- 📓 **Google Colab notebook:** [ab_test_significance.ipynb](https://colab.research.google.com/github/ButenkoYuliia/ab-test-significance/blob/main/ab_test_significance.ipynb)
-- 📓 **Original Colab notebook with outputs (Ukrainian):** [open in Colab](https://colab.research.google.com/drive/1e-JEP-QysmhbRnLBGNRQ9DETorSClouz?usp=sharing)
-- 📁 **Results CSV:** [data/ab_test_results.csv](data/ab_test_results.csv)
+- 📓 **Google Colab notebook (Ukrainian):** [ab_test_significance_ua.ipynb](https://colab.research.google.com/github/ButenkoYuliia/ab-test-significance/blob/main/ab_test_significance_ua.ipynb)
+- 📁 **Final results (totals per test):** [data/ab_test_results_final.csv](data/ab_test_results_final.csv)
+- 📁 **All segments (used in Tableau):** [data/ab_test_results_segments.csv](data/ab_test_results_segments.csv)
 
 ## Business question
 
@@ -17,41 +17,45 @@ Which of the four A/B tests produced a real (statistically significant) change i
 
 ## Data
 
-- Source: Google BigQuery, e-commerce dataset "DA" (GA4-style events), Nov 2020 – Jan 2021
+- Source: Google BigQuery, e-commerce dataset "DA" (GA4-style events), Nov 2020 – Jan 2021; the notebook queries BigQuery directly
 - Aggregated by date, test, test group, device, continent, country and channel
-- Value = number of **unique sessions** with each event
+- Numerator = **number of events**; denominator = **number of sessions**
 
 ## Metrics
 
 | Metric | Formula |
 |---|---|
-| add_payment_info / session | sessions with `add_payment_info` ÷ all sessions |
-| add_shipping_info / session | sessions with `add_shipping_info` ÷ all sessions |
-| begin_checkout / session | sessions with `begin_checkout` ÷ all sessions |
-| new_accounts / session | sessions with a new account ÷ all sessions |
+| add_payment_info / session | `add_payment_info` events ÷ sessions |
+| add_shipping_info / session | `add_shipping_info` events ÷ sessions |
+| begin_checkout / session | `begin_checkout` events ÷ sessions |
+| new_accounts / session | new accounts ÷ sessions |
 
 ## Method
 
-1. Conversion rates of the control group (`test_group = 1`) and the test group (`test_group = 2`) are compared with a **two-proportion z-test** (`statsmodels.proportions_ztest`).
+1. Metrics of the control group (`test_group = 1`) and the test group (`test_group = 2`) are compared with a **two-proportion z-test** (`statsmodels.proportions_ztest`).
 2. Significance level **α = 0.05**: p-value < 0.05 → significant increase or decrease; otherwise not significant.
-3. The calculation runs in **loops** over all tests, metrics and segments (total, device, continent, country, channel). Only the metric names and formulas are hard-coded, so new metrics or segments can be added with one line.
-4. Segments with fewer than 1,000 sessions per group are flagged as unreliable.
-
-Result: 1,968 checks saved to a CSV that feeds the Tableau dashboard.
+3. `metric_change` = (test − control) / control × 100 %.
+4. The calculation runs in **loops** over all tests, metrics and segments (total, device, continent, country, channel). Only the metric names and formulas are hard-coded, so new metrics or segments can be added with one line.
+5. Segments with fewer than 1,000 sessions per group are flagged as unreliable.
 
 ## Key findings
 
-| Test | Metric | Control | Test | Uplift | p-value | Result |
+| Test | Metric | Control | Test | Change | p-value | Result |
 |---|---|---|---|---|---|---|
-| 1 | add_shipping_info / session | 4.10 % | 4.41 % | +7.5 % | 0.022 | ✅ significant increase |
-| 1 | begin_checkout / session | 4.10 % | 4.41 % | +7.4 % | 0.024 | ✅ significant increase |
+| 1 | add_payment_info / session | 4.38 % | 4.93 % | +12.5 % | 0.0001 | ✅ significant increase |
+| 1 | add_shipping_info / session | 6.69 % | 7.13 % | +6.6 % | 0.009 | ✅ significant increase |
+| 1 | begin_checkout / session | 8.34 % | 8.90 % | +6.7 % | 0.003 | ✅ significant increase |
+| 3 | begin_checkout / session | 13.61 % | 13.15 % | −3.4 % | 0.012 | 🔻 significant decrease |
+| 4 | begin_checkout / session | 11.95 % | 11.67 % | −2.4 % | 0.046 | 🔻 significant decrease |
 | 4 | new_accounts / session | 8.55 % | 8.26 % | −3.4 % | 0.018 | 🔻 significant decrease |
-| other 13 checks | | | | −3.4 % to +3.4 % | > 0.05 | not significant |
+| other 10 checks | | | | −3.5 % to +3.6 % | > 0.05 | not significant |
 
-- **Test 1** improves the start of checkout, mainly on **desktop**, but the gain does not reach the payment step, and sign-ups drop in the **US**. Candidate for rollout after further checks.
-- **Test 4** significantly reduces sign-ups. Not recommended for rollout.
-- **Tests 2 and 3** show no significant effect.
-- Only 65 of 1,968 segment checks (≈ 3.3 %) are significant, below the ~5 % expected by chance, so isolated segment results are treated as hypotheses, not proven effects.
+- **Test 1** significantly improves the whole checkout funnel, with the largest gain at the payment step (+12.5 %). Recommended for rollout.
+- **Test 3** significantly reduces `begin_checkout`. Not recommended.
+- **Test 4** significantly reduces `begin_checkout` and sign-ups. Not recommended.
+- **Test 2** shows no significant effect.
+
+**Limitation:** one session can contain several events, while the z-test assumes independent observations, so significance may be slightly overstated. Isolated significant segments without confirmation in the total are treated as hypotheses.
 
 ## Dashboard
 
@@ -67,9 +71,10 @@ Python (pandas, NumPy, statsmodels) · Google Colab · Google BigQuery (SQL) · 
 ## Repository structure
 
 ```
-├── ab_test_significance.ipynb   # analysis notebook
+├── ab_test_significance_ua.ipynb  # analysis notebook (Ukrainian)
 ├── data/
-│   └── ab_test_results.csv      # significance results for Tableau
+│   ├── ab_test_results_final.csv    # totals per test
+│   └── ab_test_results_segments.csv # all segments, used in Tableau
 ├── images/
 │   └── dashboard_significance.png
 └── README.md
